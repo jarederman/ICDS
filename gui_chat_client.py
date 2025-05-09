@@ -11,10 +11,8 @@ from PIL import Image, ImageDraw
 from chat_utils import SERVER, mysend, myrecv, S_LOGGEDIN, S_CHATTING
 import client_state_machine as csm
 
-# strip ANSI
 ANSI_ESCAPE = re.compile(r'\x1B\[[0-9;]*[mK]')
 
-# load CNN
 MODEL_PATH = 'mnist.h5'
 if not os.path.exists(MODEL_PATH):
     raise RuntimeError("Missing handwriting_model.h5")
@@ -29,17 +27,17 @@ class ChatGUIClient(tk.Toplevel):
         sw = self.winfo_screenwidth()
         sh = self.winfo_screenheight()
         # set min size to one quarter of screen
-        self.minsize(sw // 2, sh // 2)
+        self.minsize(sw * 2 // 3, sh * 2 // 3)
         # optionally center it
-        self.geometry(f"{sw//2}x{sh//2}+{sw//4}+{sh//4}")
+        self.geometry(f"{sw * 2 //3}x{sh * 2 // 3}+{sw//4}+{sh//4}")
         # ───────────────────────────────────────────────────
         
         self.parent = parent
         self.sock = sock
         self.user = user
         self.running = True
+        self.dark_mode = False
 
-        # state machine
         self.sm = csm.ClientSM(self.sock)
         self.sm.set_state(S_LOGGEDIN)
         self.sm.set_myname(user)
@@ -51,8 +49,8 @@ class ChatGUIClient(tk.Toplevel):
         self.title(f"Chat – {user}")
         self.protocol("WM_DELETE_WINDOW", self.on_quit)
         self._build_ui()
+        self._apply_light_mode()
 
-        # welcome
         self._append(f"Welcome, {user}!")
 
         threading.Thread(target=self._reader_loop, daemon=True).start()
@@ -68,12 +66,13 @@ class ChatGUIClient(tk.Toplevel):
             ("Time", self._time), ("Who", self._who),
             ("Connect", self._connect), ("Disconnect", self._disconnect),
             ("Search", self._search), ("Get Poem", self._poem),
+            ("Mode", self._btn_mode_toggle),
             ("CNN", self._digit), ("Quit", self.on_quit)
         ]
         frame = Frame(self)
         frame.pack(fill=tk.X, padx=5, pady=5)
         for txt, cmd in btns:
-            Button(frame, text=txt, width=8, command=cmd, font=("Arial", 12)).pack(side=tk.LEFT, padx=4)
+            Button(frame, text=txt, width=6, command=cmd).pack(side=tk.LEFT, padx=2)
 
         # entry/send
         bottom = Frame(self)
@@ -84,10 +83,38 @@ class ChatGUIClient(tk.Toplevel):
         self.btn_send = Button(bottom, text="Send", width=12, command=self._send)
         self.btn_send.pack(side=tk.RIGHT, padx=2)
         self.btn_send.config(state=tk.DISABLED)
+    
+    def _apply_light_mode(self):
+        bg, fg = "white", "black"
+        self.configure(bg=bg)
+        self.txt.configure(bg=bg, fg=fg, insertbackground=fg)
+        for w in self.winfo_children():
+            try:
+                w.configure(bg=bg, fg=fg)
+            except:
+                pass
+        self.dark_mode = False
+
+    def _apply_dark_mode(self):
+        bg, fg = "black", "white"
+        self.configure(bg=bg)
+        self.txt.configure(bg=bg, fg=fg, insertbackground=fg)
+        for w in self.winfo_children():
+            try:
+                w.configure(bg=bg, fg=fg)
+            except:
+                pass
+        self.dark_mode = True
+
+    def _btn_mode_toggle(self):
+        if self.dark_mode:
+            self._apply_light_mode()
+        else:
+            self._apply_dark_mode()
 
     def _append(self, msg):
         self.txt.configure(state='normal')
-        self.txt.insert(tk.END, msg+"\n")
+        self.txt.insert(tk.END, msg + "\n")
         self.txt.configure(state='disabled')
         self.txt.see(tk.END)
 
@@ -132,7 +159,7 @@ class ChatGUIClient(tk.Toplevel):
         self.ent.delete(0,tk.END)
 
     def _digit(self):
-        # canvas for single digit
+        # canvas
         w,h=200,200
         dlg=Toplevel(self); dlg.title("Draw Digit")
         c=tk.Canvas(dlg,width=w,height=h,bg='white')
@@ -400,7 +427,6 @@ class AccessControlSystem:
         self.current_user = ""
         self.save_current_user()
 
-        # 清空原有主窗口组件
         for widget in self.parent.winfo_children():
             widget.destroy()
 
