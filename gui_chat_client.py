@@ -73,7 +73,7 @@ class ChatGUIClient(tk.Toplevel):
         frame = Frame(self)
         frame.pack(fill=tk.X, padx=5, pady=5)
         for txt, cmd in btns:
-            Button(frame, text=txt, width=6, command=cmd).pack(side=tk.LEFT, padx=2)
+            Button(frame, text=txt, width=8, command=cmd, font=("Arial", 12)).pack(side=tk.LEFT, padx=4)
 
         # entry/send
         bottom = Frame(self)
